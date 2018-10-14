@@ -381,9 +381,17 @@ sub _generate_query {
 			    "CREATE TEMP TABLE count_table AS SELECT $view.id,COUNT($count_item) AS count FROM $view "
 			  . "JOIN allele_designations ad ON $view.id=ad.isolate_id WHERE @lqry GROUP BY $view.id";
 		} else {
-			$create_temp_table =
-			    'CREATE TEMP TABLE count_table AS SELECT pm.profile_id AS id,COUNT(*) AS count FROM profile_members pm '
-			  . "WHERE pm.scheme_id=$scheme_id AND (@lqry) GROUP BY pm.profile_id";
+			my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+			my @profile;
+			foreach my $locus (sort @$loci){
+				push @profile, $values{$locus};
+			}
+			my $array = BIGSdb::Utils::get_pg_array(\@profile);
+			$create_temp_table = "CREATE TEMP TABLE count_table AS SELECT * FROM profile_match_count($scheme_id,'$array')";
+			$logger->error($create_temp_table);
+#			$create_temp_table =
+#			    'CREATE TEMP TABLE count_table AS SELECT pm.profile_id AS id,COUNT(*) AS count FROM profile_members pm '
+#			  . "WHERE pm.scheme_id=$scheme_id AND (@lqry) GROUP BY pm.profile_id";
 		}
 		$create_temp_table .= ';CREATE INDEX ON count_table(count)';
 		eval { $self->{'db'}->do($create_temp_table); };
